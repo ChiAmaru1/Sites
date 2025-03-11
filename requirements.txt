@@ -1,5 +1,5 @@
-flask
-requests
-beautifulsoup4
-selenium
-chromedriver-binary
+flask  
+requests  
+beautifulsoup4  
+selenium  
+chromedriver-binary  
