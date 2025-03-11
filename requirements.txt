@@ -1,0 +1,5 @@
+git init
+git add .
+git commit -m "Initial commit with requirements.txt"
+git remote add origin <URL-del-repositorio>
+git push -u origin main
