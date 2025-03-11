@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, render_template_string
 import os
 from urllib.parse import urlparse
 import requests
@@ -32,7 +32,7 @@ def configurar_selenium_headless():
 def analizar_url_pasivo(url):
     try:
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
         }
         response = requests.get(url, headers=headers, timeout=10)
@@ -125,8 +125,8 @@ def detectar_checkout(texto, soup):
     return resultado
 
 def tiene_seguridad(texto, soup, cabeceras):
-    seguridades = ["cloudflare", "recaptcha", "two-factor", "2fa", "verification", "checkout", "payment"]
-    return any(s in texto for s in seguridades) or "cloudflare" in cabeceras.get("server", "").lower()
+    aseguridades = ["cloudflare", "recaptcha", "two-factor", "2fa", "verification", "checkout", "payment"]
+    return any(s in texto for s in aseguridades) or "cloudflare" in cabeceras.get("server", "").lower()
 
 def es_url_valida(url):
     try:
@@ -136,6 +136,71 @@ def es_url_valida(url):
         return False
 
 # Ruta principal con HTML embebido
+HTML = """
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analizador de URLs</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        pre { white-space: pre-wrap; }
+        .segura { color: red; }
+        .vulnerable { color: green; }
+    </style>
+</head>
+<body class="bg-dark text-white">
+    <div class="container mt-5">
+        <h1 class="text-center">Analizador de URLs</h1>
+        <p class="text-center">Echo por @Chiamaru</p>
+        
+        <form method="post" enctype="multipart/form-data" class="mt-4">
+            <div class="mb-3">
+                <label for="urls_manual" class="form-label">Pega URLs aquí (una por línea):</label>
+                <textarea class="form-control" id="urls_manual" name="urls_manual" rows="3" placeholder="Ejemplo:
+https://ejemplo.com
+https://otro.com"></textarea>
+            </div>
+            <div class="mb-3">
+                <label for="file" class="form-label">O sube un archivo (.txt) para más URLs:</label>
+                <input type="file" class="form-control" id="file" name="file" accept=".txt">
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Analizar</button>
+        </form>
+        
+        {% if error %}
+            <div class="alert alert-danger mt-3">{{ error }}</div>
+        {% endif %}
+        
+        {% if resultados %}
+            <div class="mt-4">
+                <h3>Resultados</h3>
+                <table class="table table-dark">
+                    <thead>
+                        <tr>
+                            <th>URL</th>
+                            <th>Análisis</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for resultado in resultados %}
+                            <tr>
+                                <td class="{% if resultado.segura %}segura{% else %}vulnerable{% endif %}">
+                                    {{ resultado.url }}
+                                </td>
+                                <td><pre>{{ resultado.resultado }}</pre></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>
+"""
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     resultados = []
@@ -172,80 +237,9 @@ def index():
                 resultado_total = resultado_pasivo + resultado_selenium
                 resultados.append({"url": url, "resultado": resultado_total, "segura": seguridad_pasiva})
 
-    # HTML embebido como string
-    html = '''
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Analizador de URLs</title>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-        <style>
-            pre { white-space: pre-wrap; }
-            .segura { color: red; }
-            .vulnerable { color: green; }
-        </style>
-    </head>
-    <body class="bg-dark text-white">
-        <div class="container mt-5">
-            <h1 class="text-center">Analizador de URLs</h1>
-            <p class="text-center">Echo por @Chiamaru</p>
-            
-            <form method="post" enctype="multipart/form-data" class="mt-4">
-                <div class="mb-3">
-                    <label for="urls_manual" class="form-label">Pega URLs aquí (una por línea):</label>
-                    <textarea class="form-control" id="urls_manual" name="urls_manual" rows="3" placeholder="Ejemplo:
-https://ejemplo.com
-https://otro.com"></textarea>
-                </div>
-                <div class="mb-3">
-                    <label for="file" class="form-label">O sube un archivo (.txt) para más URLs:</label>
-                    <input type="file" class="form-control" id="file" name="file" accept=".txt">
-                </div>
-                <button type="submit" class="btn btn-primary w-100">Analizar</button>
-            </form>
-    '''
-    
-    if error:
-        html += f'''
-            <div class="alert alert-danger mt-3">{error}</div>
-        '''
-    
-    if resultados:
-        html += '''
-            <div class="mt-4">
-                <h3>Resultados</h3>
-                <table class="table table-dark">
-                    <thead>
-                        <tr>
-                            <th>URL</th>
-                            <th>Análisis</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        '''
-        for resultado in resultados:
-            clase = "segura" if resultado["segura"] else "vulnerable"
-            html += f'''
-                        <tr>
-                            <td class="{clase}">{resultado["url"]}</td>
-                            <td><pre>{resultado["resultado"]}</pre></td>
-                        </tr>
-            '''
-        html += '''
-                    </tbody>
-                </table>
-            </div>
-        '''
-    
-    html += '''
-        </div>
-    </body>
-    </html>
-    '''
-    
-    return html
+    return render_template_string(HTML, resultados=resultados, error=error)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    import os
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
