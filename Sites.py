@@ -8,7 +8,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 import time
 
-app = Flask(__name__)
+Sites = Flask(__name__)
 
 # Configuración de Selenium en modo headless
 def configurar_selenium_headless():
